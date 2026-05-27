@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, AlertCircle, Truck, MessageSquare, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase/config';
 import { useLanguage } from '../context/LanguageContext';
 
 // Mock Data for the chart (Historical data remains mock)
@@ -60,27 +58,35 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen to anomalies
-    const unsubscribeAnomalies = onSnapshot(collection(db, 'anomalies'), (snapshot) => {
-      const anomaliesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setAnomalies(anomaliesData);
-    });
+    const fetchData = async () => {
+      try {
+        const [anomaliesRes, tankersRes, requestsRes] = await Promise.all([
+          fetch('http://localhost:3002/api/anomalies'),
+          fetch('http://localhost:3002/api/tankers'),
+          fetch('http://localhost:3002/api/requests')
+        ]);
+        if (!anomaliesRes.ok || !tankersRes.ok || !requestsRes.ok) {
+          throw new Error('Network response was not ok');
+        }
+        
+        const anomaliesData = await anomaliesRes.json();
+        const tankersData = await tankersRes.json();
+        const requestsData = await requestsRes.json();
+        
+        setAnomalies(anomaliesData);
+        setTankersCount(tankersData.length);
+        setRequestsCount(requestsData.length);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      }
+    };
 
-    // Listen to tankers
-    const unsubscribeTankers = onSnapshot(collection(db, 'tankers'), (snapshot) => {
-      setTankersCount(snapshot.size);
-    });
-
-    // Listen to requests
-    const unsubscribeRequests = onSnapshot(collection(db, 'requests'), (snapshot) => {
-      setRequestsCount(snapshot.size);
-      setLoading(false);
-    });
+    fetchData();
+    const interval = setInterval(fetchData, 3000);
 
     return () => {
-      unsubscribeAnomalies();
-      unsubscribeTankers();
-      unsubscribeRequests();
+      clearInterval(interval);
     };
   }, []);
 

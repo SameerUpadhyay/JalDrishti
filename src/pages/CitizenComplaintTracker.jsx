@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Search, AlertTriangle, Loader2 } from 'lucide-react';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase/config';
 import { useLocation } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -14,15 +12,23 @@ const CitizenComplaintTracker = () => {
   const { t } = useLanguage();
 
   useEffect(() => {
-    // Real-time listener for Anomalies/Complaints
-    const unsubscribeAnomalies = onSnapshot(collection(db, 'anomalies'), (snapshot) => {
-      const anomaliesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setAnomalies(anomaliesData);
-      setLoading(false);
-    });
+    const fetchAnomalies = async () => {
+      try {
+        const res = await fetch('http://localhost:3002/api/anomalies');
+        if (!res.ok) throw new Error('Network response was not ok');
+        const data = await res.json();
+        setAnomalies(data);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching anomalies:', err);
+      }
+    };
+
+    fetchAnomalies();
+    const interval = setInterval(fetchAnomalies, 3000);
 
     return () => {
-      unsubscribeAnomalies();
+      clearInterval(interval);
     };
   }, []);
 

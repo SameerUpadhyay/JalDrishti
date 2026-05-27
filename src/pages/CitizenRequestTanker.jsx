@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase/config';
 import { Truck, MapPin, Droplets, AlertTriangle, CheckCircle, Loader2, Copy, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
@@ -33,16 +31,23 @@ const CitizenRequestTanker = () => {
     const trackingId = `TNK-2026-${randomStr}`;
     
     try {
-      await addDoc(collection(db, 'requests'), {
-        area: formData.area,
-        volume: parseInt(formData.volume),
-        urgency: formData.urgency,
-        addressDetails: formData.addressDetails,
-        phone: formData.phone,
-        status: 'Pending',
-        trackingId: trackingId,
-        timestamp: serverTimestamp()
+      const res = await fetch('http://localhost:3002/api/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          area: formData.area,
+          volume: parseInt(formData.volume),
+          urgency: formData.urgency,
+          addressDetails: formData.addressDetails,
+          phone: formData.phone,
+          status: 'Pending',
+          trackingId: trackingId
+        })
       });
+
+      if (!res.ok) {
+        throw new Error('Failed to submit request to server');
+      }
       
       setSuccessData({
         trackingId,

@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Truck, Map, Clock, CheckCircle, Navigation, Users, Loader2 } from 'lucide-react';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase/config';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import { useLanguage } from '../context/LanguageContext';
 import { useMapLoader } from '../context/MapContext';
@@ -75,22 +73,30 @@ const TankerDispatch = () => {
   const { isLoaded } = useMapLoader();
 
   useEffect(() => {
-    // Real-time listener for Tankers
-    const unsubscribeTankers = onSnapshot(collection(db, 'tankers'), (snapshot) => {
-      const tankersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setTankers(tankersData);
-    });
+    const fetchData = async () => {
+      try {
+        const [tankersRes, requestsRes] = await Promise.all([
+          fetch('http://localhost:3002/api/tankers'),
+          fetch('http://localhost:3002/api/requests')
+        ]);
+        if (!tankersRes.ok || !requestsRes.ok) throw new Error('Network response was not ok');
+        
+        const tankersData = await tankersRes.json();
+        const requestsData = await requestsRes.json();
+        
+        setTankers(tankersData);
+        setRequests(requestsData);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      }
+    };
 
-    // Real-time listener for Requests
-    const unsubscribeRequests = onSnapshot(collection(db, 'requests'), (snapshot) => {
-      const requestsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setRequests(requestsData);
-      setLoading(false);
-    });
+    fetchData();
+    const interval = setInterval(fetchData, 3000);
 
     return () => {
-      unsubscribeTankers();
-      unsubscribeRequests();
+      clearInterval(interval);
     };
   }, []);
 

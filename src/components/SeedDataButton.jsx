@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { collection, writeBatch, doc } from 'firebase/firestore';
-import { db } from '../firebase/config';
 import { Database } from 'lucide-react';
 
 const mockTankers = [
@@ -58,31 +56,23 @@ const SeedDataButton = () => {
     setLoading(true);
     setMessage('Seeding database...');
     try {
-      const batch = writeBatch(db);
-
-      mockTankers.forEach(tanker => {
-        const ref = doc(collection(db, 'tankers'), tanker.id);
-        batch.set(ref, tanker);
+      const res = await fetch('http://localhost:3002/api/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tankers: mockTankers,
+          requests: mockRequests,
+          anomalies: mockAnomalies
+        })
       });
 
-      mockRequests.forEach(req => {
-        const ref = doc(collection(db, 'requests'), req.id);
-        batch.set(ref, req);
-      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to seed database');
+      }
 
-      mockAnomalies.forEach(anomaly => {
-        const ref = doc(collection(db, 'anomalies'), anomaly.id);
-        batch.set(ref, anomaly);
-      });
-
-      // Use a timeout since Firebase can hang indefinitely if rules block writes or if Firestore isn't initialized
-      const commitPromise = batch.commit();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout after 10 seconds. Please check if your Firestore Database is initialized in the Firebase Console and that your Security Rules allow reads/writes (e.g., allow read, write: if true; for testing).')), 10000)
-      );
-
-      await Promise.race([commitPromise, timeoutPromise]);
-      setMessage('Database successfully seeded with mock data!');
+      const data = await res.json();
+      setMessage(data.message || 'Database successfully seeded with mock data!');
     } catch (error) {
       console.error("Error seeding database: ", error);
       setMessage(`Error: ${error.message}`);
@@ -94,7 +84,7 @@ const SeedDataButton = () => {
   return (
     <div className="card" style={{ marginTop: '24px' }}>
       <h3 className="card-title">Developer Tools</h3>
-      <p className="small-text" style={{ marginBottom: '16px' }}>Use this to populate the connected Firestore database with initial mock data.</p>
+      <p className="small-text" style={{ marginBottom: '16px' }}>Use this to populate the connected MySQL database with initial mock data.</p>
       
       <button 
         className="button-primary" 
@@ -102,7 +92,7 @@ const SeedDataButton = () => {
         disabled={loading}
       >
         <Database size={18} />
-        {loading ? 'Seeding...' : 'Seed Firestore Database'}
+        {loading ? 'Seeding...' : 'Seed MySQL Database'}
       </button>
 
       {message && <div style={{ marginTop: '16px', fontWeight: 500, fontSize: '14px', color: message.includes('Error') ? '#C5221F' : '#137333' }}>{message}</div>}

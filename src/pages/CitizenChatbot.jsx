@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Camera, Paperclip, Loader2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase/config';
 import { useLanguage } from '../context/LanguageContext';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
@@ -191,18 +189,25 @@ const CitizenChatbot = () => {
         try {
           const complaintData = JSON.parse(jsonMatch[1]);
           if (complaintData.isComplaint) {
-            // Write to Firestore
-            await addDoc(collection(db, 'anomalies'), {
-              type: complaintData.type || 'Citizen Report',
-              location: complaintData.location || 'Unknown Location',
-              severity: complaintData.severity || 'Medium',
-              severityColor: complaintData.severityColor || '161, 66, 244',
-              icon: complaintData.icon || '',
-              trackingId: complaintData.trackingId || `CMP-2026-${Math.random().toString(36).substring(2,6).toUpperCase()}`,
-              time: 'Just now',
-              createdAt: serverTimestamp()
+            // Write to MySQL Express API
+            const res = await fetch('http://localhost:3002/api/anomalies', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: complaintData.type || 'Citizen Report',
+                location: complaintData.location || 'Unknown Location',
+                severity: complaintData.severity || 'Medium',
+                severityColor: complaintData.severityColor || '161, 66, 244',
+                icon: complaintData.icon || '',
+                trackingId: complaintData.trackingId || `CMP-2026-${Math.random().toString(36).substring(2,6).toUpperCase()}`
+              })
             });
-            console.log("Auto-filed complaint to Firestore:", complaintData);
+
+            if (!res.ok) {
+              throw new Error('Failed to auto-file complaint');
+            }
+
+            console.log("Auto-filed complaint to MySQL:", complaintData);
             
             // Remove the JSON block from the chat text shown to the user
             responseText = responseText.replace(jsonMatch[0], '').trim();

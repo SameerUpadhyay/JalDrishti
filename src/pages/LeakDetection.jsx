@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Search, MapPin, AlertTriangle, Droplet, Flame, Loader2 } from 'lucide-react';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase/config';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import { useLanguage } from '../context/LanguageContext';
 import { useMapLoader } from '../context/MapContext';
@@ -135,12 +133,24 @@ const LeakDetection = () => {
   const { isLoaded } = useMapLoader();
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'anomalies'), (snapshot) => {
-      const anomaliesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setAnomalies(anomaliesData);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    const fetchAnomalies = async () => {
+      try {
+        const res = await fetch('http://localhost:3002/api/anomalies');
+        if (!res.ok) throw new Error('Network response was not ok');
+        const data = await res.json();
+        setAnomalies(data);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching anomalies:', err);
+      }
+    };
+
+    fetchAnomalies();
+    const interval = setInterval(fetchAnomalies, 3000);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   const mapElement = React.useMemo(() => {
